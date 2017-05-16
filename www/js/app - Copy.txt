@@ -1,0 +1,138 @@
+var imageApp = angular.module("starter", ["ionic", "ngCordova", "firebase"]);
+
+//var fb = new Firebase("https://imageapp-21355.firebaseio.com/");
+//var fb = FirebaseDatabase.getInstance().getReference();
+
+var config = {
+    apiKey: 'AIzaSyA1XxS66Iyto3p1cwJ23Zj_9KYiWntTBAo',
+    authDomain: 'imageapp-a5363.firebaseio.com',
+    databaseURL: 'https://imageapp-a5363.firebaseio.com/',
+    storageBucket: 'imageapp-a5363'
+  };
+  firebase.initializeApp(config);
+
+  var fb = firebase.database().ref();
+  var loggedInUser = null;
+
+imageApp.run(function($ionicPlatform) {
+  $ionicPlatform.ready(function() {
+    if(window.cordova && window.cordova.plugins.Keyboard) {
+      cordova.plugins.Keyboard.hideKeyboardAccessoryBar(true);
+    }
+    if(window.StatusBar) {
+      StatusBar.styleDefault();
+    }
+  });
+})
+
+imageApp.config(function($stateProvider, $urlRouterProvider) {
+    $stateProvider
+        .state("firebase", {
+            url: "/firebase",
+            templateUrl: "templates/firebase.html",
+            controller: "FirebaseController",
+            cache: false
+        })
+        .state("secure", {
+            url: "/secure",
+            templateUrl: "templates/secure.html",
+            controller: "SecureController"
+        });
+    $urlRouterProvider.otherwise('/firebase');
+});
+
+imageApp.controller("FirebaseController", function($scope, $state, $firebaseAuth) {
+
+    var fbAuth = $firebaseAuth();
+
+    $scope.login = function(username, password) {
+        //fbAuth.$authWithPassword({
+        fbAuth.$signInWithEmailAndPassword(
+            username,
+            password
+     //   fbAuth.$signInWithPopup({
+       //   "facebook"
+        ).then(function(authData) {
+    //alert(authData.uid);
+    loggedInUser = authData;
+  //  alert('secure');
+  //  alert(loggedInUser.uid);
+            $state.go("secure");
+        }).catch(function(error) {
+        alert(error);
+            console.error("ERROR: " + error);
+        });
+    //}
+     // fbAuth.$signInWithPopup("facebook").then(function(firebaseUser) {
+     //   console.log("Signed in as:", firebaseUser.uid);
+     // }).catch(function(error) {
+     //   console.log("Authentication failed:", error);
+     // });
+    }
+
+    $scope.register = function(username, password) {
+        fbAuth.$createUser({email: username, password: password}).then(function(userData) {
+            return fbAuth.$authWithPassword({
+                email: username,
+                password: password
+            });
+        }).then(function(authData) {
+            $state.go("secure");
+        }).catch(function(error) {
+            console.error("ERROR: " + error);
+        });
+    }
+
+});
+
+
+imageApp.controller("SecureController", function($scope, $ionicHistory, $firebaseArray, $cordovaCamera) {
+
+    //var fbAuth = $firebaseAuth();
+    $ionicHistory.clearHistory();
+
+    $scope.images = [];
+
+//alert('1');
+//alert(loggedInUser.uid);
+    //var fbAuth = fb.getAuth();
+  //  alert('2');
+    if(loggedInUser) {
+    //  alert('3');
+        var userReference = fb.child("users/" + loggedInUser.uid);
+      //  alert('4');
+        var syncArray = $firebaseArray(userReference.child("images"));
+      //  alert('5');
+        $scope.images = syncArray;
+      //  alert('6');
+    } else {
+        $state.go("firebase");
+    }
+
+    $scope.upload = function() {
+      alert('in upload');
+        var options = {
+            quality : 75,
+          //  destinationType : Camera.DestinationType.DATA_URL,
+          //  sourceType : Camera.PictureSourceType.CAMERA,
+            allowEdit : true,
+          //  encodingType: Camera.EncodingType.JPEG,
+          //  popoverOptions: CameraPopoverOptions,
+            targetWidth: 500,
+            targetHeight: 500,
+            saveToPhotoAlbum: false
+        };
+        alert('1');
+        $cordovaCamera.getPicture(options).then(function(imageData) {
+          alert('in getPicture');
+            syncArray.$add({image: imageData}).then(function() {
+                alert("Image has been uploaded");
+            });
+        }, function(error) {
+          alert(error);
+            console.error(error);
+        });
+        alert('2');
+    }
+
+});
